@@ -1,4 +1,4 @@
-import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { HashRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { isSupabaseConfigured } from './lib/supabase'
 import { Layout } from './components/Layout'
@@ -12,7 +12,30 @@ import { ExpensesPage } from './pages/ExpensesPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { SettingsPage } from './pages/SettingsPage'
 
-function SetupRequired(){return <div className="setup"><div className="auth-card"><h1>Configuration required</h1><p>Add the following GitHub Actions secrets, then re-run the Pages workflow:</p><code>VITE_SUPABASE_URL</code><code>VITE_SUPABASE_PUBLISHABLE_KEY</code><p>Run <code>supabase/migrations/001_initial.sql</code> in the Supabase SQL Editor first.</p></div></div>}
+function SetupRequired(){return <div className="setup"><div className="auth-card"><h1>Configuration required</h1><p>Add the following GitHub Actions secrets, then re-run the Pages workflow:</p><code>VITE_SUPABASE_URL</code><code>VITE_SUPABASE_PUBLISHABLE_KEY</code><p>Run the Supabase migrations in order.</p></div></div>}
+
 function Protected(){const{session,profile,loading}=useAuth();if(loading)return <div className="loading">Loading SnackFlow…</div>;if(!session)return <Navigate to="/login" replace/>;if(profile?.status!=='active')return <div className="setup"><div className="auth-card"><h1>Account pending</h1><p>Your account is not active. Ask an Admin to approve the same email address.</p></div></div>;return <Layout/>}
-function AppRoutes(){const{session}=useAuth();return <Routes><Route path="/login" element={session?<Navigate to="/" replace/>:<AuthPage/>}/><Route element={<Protected/>}><Route index element={<DashboardPage/>}/><Route path="members" element={<MembersPage/>}/><Route path="wallet" element={<WalletPage/>}/><Route path="menu" element={<MenuPage/>}/><Route path="orders" element={<OrdersPage/>}/><Route path="expenses" element={<ExpensesPage/>}/><Route path="reports" element={<ReportsPage/>}/><Route path="settings" element={<SettingsPage/>}/></Route><Route path="*" element={<Navigate to="/" replace/>}/></Routes>}
+
+function AdminOnly(){const{profile}=useAuth();return profile?.role==='admin'?<Outlet/>:<Navigate to="/orders" replace/>}
+
+function HomeRedirect(){const{profile}=useAuth();return <Navigate to={profile?.role==='admin'?'/dashboard':'/orders'} replace/>}
+
+function AppRoutes(){const{session}=useAuth();return <Routes>
+  <Route path="/login" element={session?<Navigate to="/" replace/>:<AuthPage/>}/>
+  <Route element={<Protected/>}>
+    <Route index element={<HomeRedirect/>}/>
+    <Route path="orders" element={<OrdersPage/>}/>
+    <Route path="wallet" element={<WalletPage/>}/>
+    <Route path="expenses" element={<ExpensesPage/>}/>
+    <Route path="reports" element={<ReportsPage/>}/>
+    <Route element={<AdminOnly/>}>
+      <Route path="dashboard" element={<DashboardPage/>}/>
+      <Route path="members" element={<MembersPage/>}/>
+      <Route path="menu" element={<MenuPage/>}/>
+      <Route path="settings" element={<SettingsPage/>}/>
+    </Route>
+  </Route>
+  <Route path="*" element={<Navigate to="/" replace/>}/>
+</Routes>}
+
 export default function App(){if(!isSupabaseConfigured)return <SetupRequired/>;return <HashRouter><AuthProvider><AppRoutes/></AuthProvider></HashRouter>}
