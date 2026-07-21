@@ -15,7 +15,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.1.0",
-    "read-excel-file": "^9.3.4"
+    "read-excel-file": "9.3.3"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
