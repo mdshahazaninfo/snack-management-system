@@ -1,27 +1,162 @@
 @media (max-width: 780px) {
-  .shell { display: block; min-height: 100vh; }
-  .sidebar { position: sticky; top: 0; z-index: 20; width: 100%; height: auto; padding: 12px; gap: 10px; }
+  html, body, #root { width: 100%; max-width: 100%; overflow-x: hidden; }
+  .shell { display: block; min-width: 0; min-height: 100vh; }
+
+  .sidebar {
+    position: static;
+    width: 100%;
+    height: auto;
+    padding: 14px 14px 12px;
+    gap: 14px;
+  }
+
   .sidebar .brand { justify-content: center; }
-  .sidebar nav { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; }
-  .sidebar nav a { flex: 0 0 auto; padding: 9px 12px; font-size: .88rem; }
-  .sidebar-user { display: flex; margin-top: 0; flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; }
-  .sidebar-user span { max-width: 55vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .main { width: 100%; padding: 14px 10px 28px; overflow-x: hidden; }
+  .sidebar .brand > span { width: 46px; height: 46px; }
+
+  .sidebar nav {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 7px;
+    overflow: visible;
+    padding: 0;
+  }
+
+  .sidebar nav a {
+    min-width: 0;
+    padding: 10px 4px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: .82rem;
+  }
+
+  .sidebar-user {
+    margin-top: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .sidebar-user .user-copy {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sidebar-user .user-copy span {
+    max-width: 68vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sidebar-user .signout {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .main { width: 100%; min-width: 0; padding: 16px 12px 30px; overflow-x: hidden; }
   .page-title { flex-direction: column; align-items: stretch; margin-bottom: 14px; }
-  .page-title h1 { font-size: 1.45rem; }
+  .page-title h1 { font-size: 1.55rem; }
+  .page-title p { font-size: .9rem; }
   .page-title > button { width: 100%; }
-  .card { padding: 14px; border-radius: 13px; margin-bottom: 14px; }
+
+  .card { padding: 15px; border-radius: 14px; margin-bottom: 14px; }
+  .card-head { margin-bottom: 12px; }
+
   .form-grid { display: grid; grid-template-columns: 1fr; gap: 10px; align-items: stretch; }
   .form-grid label { min-width: 0; width: 100%; margin-bottom: 0; }
   .form-grid input, .form-grid select, .form-grid button { width: 100%; }
-  .grid-2, .orders-grid { grid-template-columns: 1fr; gap: 12px; }
-  .stats { grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .stat { padding: 12px; min-width: 0; }
-  .item-grid { grid-template-columns: 1fr; }
-  .cart-row { align-items: flex-start; gap: 8px; }
-  .cart-row > div:last-child { display: flex; flex-wrap: nowrap; }
-  .receipt { flex-direction: column; text-align: center; }
-  .table-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  .grid-2, .orders-grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+  .orders-grid > * { min-width: 0; width: 100%; }
+  .orders-grid label, .orders-grid input, .orders-grid select { width: 100%; max-width: 100%; }
+
+  .item-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .item-btn {
+    min-width: 0;
+    width: 100%;
+    padding: 12px 10px;
+    overflow: hidden;
+  }
+
+  .item-btn b, .item-btn small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .item-btn b { white-space: nowrap; font-size: .95rem; }
+  .item-btn small { white-space: normal; font-size: .76rem; line-height: 1.25; }
+
+  .cart-row {
+    width: 100%;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .cart-row > div:first-child { min-width: 0; }
+  .cart-row > div:first-child b,
+  .cart-row > div:first-child small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cart-row > div:last-child {
+    display: grid;
+    grid-template-columns: repeat(3, 38px);
+    gap: 4px;
+  }
+
+  .cart-row .tiny {
+    width: 38px;
+    height: 38px;
+    min-height: 38px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    font-size: 1rem;
+  }
+
+  .cart-total {
+    width: 100%;
+    min-width: 0;
+    gap: 12px;
+    font-size: 1.15rem;
+  }
+
+  .cart-total strong {
+    min-width: 0;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+
+  .orders-grid .card > button { width: 100%; }
+  .receipt { flex-direction: column; align-items: center; text-align: center; }
+
+  .table-wrap {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
   table { min-width: 650px; }
   th, td { padding: .65rem .5rem; }
   button { min-height: 44px; }
@@ -29,7 +164,10 @@
 }
 
 @media (max-width: 420px) {
+  .sidebar nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stats { grid-template-columns: 1fr; }
-  .sidebar-user small { display: none; }
+  .item-grid { grid-template-columns: 1fr; }
+  .cart-row > div:last-child { grid-template-columns: repeat(3, 34px); }
+  .cart-row .tiny { width: 34px; height: 34px; min-height: 34px; }
   .card { padding: 12px; }
 }
