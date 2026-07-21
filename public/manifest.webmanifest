@@ -1,0 +1,11 @@
+{
+  "name": "SnackFlow Micro ERP",
+  "short_name": "SnackFlow",
+  "description": "Member advance wallet and snack management system",
+  "start_url": "/snack-management-system/",
+  "scope": "/snack-management-system/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f766e",
+  "icons": [{"src":"icons/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}
