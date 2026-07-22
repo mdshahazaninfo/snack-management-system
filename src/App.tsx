@@ -11,6 +11,7 @@ import { OrdersPage } from './pages/OrdersPage'
 import { ExpensesPage } from './pages/ExpensesPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { PersonalFinancePage } from './pages/PersonalFinancePage'
 
 function SetupRequired(){return <div className="setup"><div className="auth-card"><h1>Configuration required</h1><p>Add the following GitHub Actions secrets, then re-run the Pages workflow:</p><code>VITE_SUPABASE_URL</code><code>VITE_SUPABASE_PUBLISHABLE_KEY</code><p>Run the Supabase migrations in order.</p></div></div>}
 
@@ -28,6 +29,7 @@ function AppRoutes(){const{session}=useAuth();return <Routes>
     <Route path="wallet" element={<WalletPage/>}/>
     <Route path="expenses" element={<ExpensesPage/>}/>
     <Route path="reports" element={<ReportsPage/>}/>
+    <Route path="personal-finance" element={<PersonalFinancePage/>}/>
     <Route element={<AdminOnly/>}>
       <Route path="dashboard" element={<DashboardPage/>}/>
       <Route path="members" element={<MembersPage/>}/>
