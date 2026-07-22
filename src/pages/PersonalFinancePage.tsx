@@ -43,7 +43,7 @@ export function PersonalFinancePage(){
     setRecurring((r.data as Recurring[])||[])
   }
 
-  useEffect(()=>{load()},[])
+  useEffect(()=>{void load()},[])
 
   const currentMonth=transactions.filter(x=>x.transaction_date>=monthStart()&&x.transaction_date<=monthEnd())
   const income=currentMonth.filter(x=>x.kind==='income').reduce((s,x)=>s+Number(x.amount),0)
@@ -56,19 +56,45 @@ export function PersonalFinancePage(){
   const upcoming=recurring.filter(x=>x.next_due_date>=today()&&x.next_due_date<=new Date(Date.now()+7*86400000).toISOString().slice(0,10)).length
   const expenseCategories=useMemo(()=>categories.filter(c=>c.kind==='expense'),[categories])
 
-  const done=(message:string)=>{setSuccess(message);setError(null);load()}
+  const done=(message:string)=>{setSuccess(message);setError(null);void load()}
+  const goToAccounts=()=>document.getElementById('finance-accounts')?.scrollIntoView({behavior:'smooth',block:'start'})
 
-  const addAccount=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const f=new FormData(e.currentTarget);const{error}=await supabase.from('pf_accounts').insert({name:f.get('name'),account_type:f.get('type'),opening_balance:Number(f.get('opening')||0),low_balance_threshold:Number(f.get('threshold')||0)});if(error)setError(error.message);else{e.currentTarget.reset();done('Account added.')}}
+  const addAccount=async(e:FormEvent<HTMLFormElement>)=>{
+    e.preventDefault()
+    const form=e.currentTarget
+    const f=new FormData(form)
+    const{error:accountError}=await supabase.from('pf_accounts').insert({
+      name:f.get('name'),
+      account_type:f.get('type'),
+      opening_balance:Number(f.get('opening')||0),
+      low_balance_threshold:Number(f.get('threshold')||0),
+    })
+    if(accountError)setError(accountError.message)
+    else{form.reset();done('Account added. You can now select it in income or expense entry.')}
+  }
 
-  const addTransaction=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const f=new FormData(e.currentTarget);const kind=String(f.get('kind'));const{error}=await supabase.from('pf_transactions').insert({transaction_date:f.get('date'),kind,account_id:f.get('account'),category_id:f.get('category')||null,amount:Number(f.get('amount')),description:f.get('description'),payment_method:f.get('method'),priority:kind==='expense'?f.get('priority'):null,tags:String(f.get('tags')||'').split(',').map(x=>x.trim()).filter(Boolean)});if(error)setError(error.message);else{e.currentTarget.reset();done('Transaction saved.')}}
+  const addTransaction=async(e:FormEvent<HTMLFormElement>)=>{
+    e.preventDefault()
+    const form=e.currentTarget
+    const f=new FormData(form)
+    const accountId=String(f.get('account')||'')
+    if(!accounts.length){setError('Create a Cash, Bank or Mobile Wallet account before saving a transaction.');goToAccounts();return}
+    if(!accountId){setError('Please select the account where this money was received or spent.');return}
+    const kind=String(f.get('kind'))
+    const{error:transactionError}=await supabase.from('pf_transactions').insert({
+      transaction_date:f.get('date'),kind,account_id:accountId,category_id:f.get('category')||null,
+      amount:Number(f.get('amount')),description:f.get('description'),payment_method:f.get('method'),
+      priority:kind==='expense'?f.get('priority'):null,
+      tags:String(f.get('tags')||'').split(',').map(x=>x.trim()).filter(Boolean),
+    })
+    if(transactionError)setError(transactionError.message)
+    else{form.reset();done('Transaction saved.')}
+  }
 
-  const transfer=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const f=new FormData(e.currentTarget);const{error}=await supabase.rpc('pf_transfer',{p_from_account:f.get('from'),p_to_account:f.get('to'),p_amount:Number(f.get('amount')),p_date:f.get('date'),p_note:f.get('note')});if(error)setError(error.message);else{e.currentTarget.reset();done('Transfer completed.')}}
-
-  const addBudget=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const f=new FormData(e.currentTarget);const{error}=await supabase.from('pf_budgets').upsert({month_start:`${f.get('month')}-01`,category_id:f.get('category'),amount:Number(f.get('amount'))},{onConflict:'owner_id,month_start,category_id'});if(error)setError(error.message);else done('Budget saved.')}
-
-  const addGoal=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const f=new FormData(e.currentTarget);const{error}=await supabase.from('pf_goals').insert({name:f.get('name'),target_amount:Number(f.get('target')),current_amount:Number(f.get('current')||0),target_date:f.get('date')||null});if(error)setError(error.message);else{e.currentTarget.reset();done('Savings goal added.')}}
-
-  const addRecurring=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const f=new FormData(e.currentTarget);const{error}=await supabase.from('pf_recurring').insert({title:f.get('title'),kind:f.get('kind'),amount:Number(f.get('amount')),account_id:f.get('account')||null,category_id:f.get('category')||null,frequency:f.get('frequency'),next_due_date:f.get('date')});if(error)setError(error.message);else{e.currentTarget.reset();done('Recurring reminder added.')}}
+  const transfer=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const f=new FormData(e.currentTarget);const{error:transferError}=await supabase.rpc('pf_transfer',{p_from_account:f.get('from'),p_to_account:f.get('to'),p_amount:Number(f.get('amount')),p_date:f.get('date'),p_note:f.get('note')});if(transferError)setError(transferError.message);else{e.currentTarget.reset();done('Transfer completed.')}}
+  const addBudget=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const f=new FormData(e.currentTarget);const{error:budgetError}=await supabase.from('pf_budgets').upsert({month_start:`${f.get('month')}-01`,category_id:f.get('category'),amount:Number(f.get('amount'))},{onConflict:'owner_id,month_start,category_id'});if(budgetError)setError(budgetError.message);else done('Budget saved.')}
+  const addGoal=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const f=new FormData(e.currentTarget);const{error:goalError}=await supabase.from('pf_goals').insert({name:f.get('name'),target_amount:Number(f.get('target')),current_amount:Number(f.get('current')||0),target_date:f.get('date')||null});if(goalError)setError(goalError.message);else{e.currentTarget.reset();done('Savings goal added.')}}
+  const addRecurring=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const f=new FormData(e.currentTarget);const{error:recurringError}=await supabase.from('pf_recurring').insert({title:f.get('title'),kind:f.get('kind'),amount:Number(f.get('amount')),account_id:f.get('account')||null,category_id:f.get('category')||null,frequency:f.get('frequency'),next_due_date:f.get('date')});if(recurringError)setError(recurringError.message);else{e.currentTarget.reset();done('Recurring reminder added.')}}
 
   const exportRows=transactions.map(x=>({date:x.transaction_date,type:x.kind,account:x.pf_accounts?.name||'',category:x.pf_categories?.name||'',amount:x.amount,description:x.description||'',method:x.payment_method||'',priority:x.priority||''}))
 
@@ -81,16 +107,31 @@ export function PersonalFinancePage(){
     </div>
 
     <div className="grid-2 finance-grid">
-      <Card title="Add income / expense"><form className="form-grid" onSubmit={addTransaction}><label>Date<input name="date" type="date" defaultValue={today()} required/></label><label>Type<select name="kind" required><option value="expense">Expense</option><option value="income">Income</option></select></label><label>Account<select name="account" required><option value="">Select</option>{accounts.map(a=><option key={a.id} value={a.id}>{a.name} — {money(a.balance)}</option>)}</select></label><label>Category<select name="category"><option value="">Select</option>{categories.map(c=><option key={c.id} value={c.id}>{c.kind} — {c.parent_name?`${c.parent_name} / `:''}{c.name}</option>)}</select></label><label>Amount<input name="amount" type="number" min="0.01" step="0.01" required/></label><label>Method<input name="method" placeholder="Cash, card, bKash..."/></label><label>Priority<select name="priority"><option value="essential">Essential</option><option value="important">Important</option><option value="optional">Optional</option></select></label><label>Description<input name="description"/></label><label>Tags<input name="tags" placeholder="family, work"/></label><button>Save transaction</button></form></Card>
+      <Card title="Add income / expense">
+        {!accounts.length&&<div className="account-required"><span className="account-required-icon">!</span><div><strong>Create an account first</strong><p>Income and expenses must be linked to Cash Wallet, Bank, bKash, Nagad or another finance account.</p></div><button type="button" className="secondary" onClick={goToAccounts}>Create account</button></div>}
+        <form className="form-grid" onSubmit={addTransaction}>
+          <label>Date<input name="date" type="date" defaultValue={today()} required/></label>
+          <label>Type<select name="kind" required><option value="expense">Expense</option><option value="income">Income</option></select></label>
+          <label>Account<select name="account" required disabled={!accounts.length}><option value="">{accounts.length?'Select account':'No account — create one first'}</option>{accounts.map(a=><option key={a.id} value={a.id}>{a.name} — {money(a.balance)}</option>)}</select></label>
+          <label>Category<select name="category"><option value="">Select</option>{categories.map(c=><option key={c.id} value={c.id}>{c.kind} — {c.parent_name?`${c.parent_name} / `:''}{c.name}</option>)}</select></label>
+          <label>Amount<input name="amount" type="number" min="0.01" step="0.01" required/></label>
+          <label>Method<input name="method" placeholder="Cash, card, bKash..."/></label>
+          <label>Priority<select name="priority"><option value="essential">Essential</option><option value="important">Important</option><option value="optional">Optional</option></select></label>
+          <label>Description<input name="description"/></label>
+          <label>Tags<input name="tags" placeholder="family, work"/></label>
+          <button disabled={!accounts.length}>{accounts.length?'Save transaction':'Create account first'}</button>
+        </form>
+      </Card>
 
-      <Card title="Accounts"><form className="form-grid" onSubmit={addAccount}><label>Name<input name="name" placeholder="Cash Wallet" required/></label><label>Type<select name="type"><option value="cash">Cash</option><option value="bank">Bank</option><option value="mobile_wallet">Mobile wallet</option><option value="credit">Credit</option><option value="investment">Investment</option><option value="other">Other</option></select></label><label>Opening balance<input name="opening" type="number" step="0.01" defaultValue="0"/></label><label>Low balance alert<input name="threshold" type="number" step="0.01" defaultValue="0"/></label><button>Add account</button></form>{accounts.length?<div className="account-list">{accounts.map(a=><div className="account-row" key={a.id}><div><b>{a.name}</b><small>{a.account_type}</small></div><strong className={Number(a.balance)<=Number(a.low_balance_threshold)&&Number(a.low_balance_threshold)>0?'negative':''}>{money(a.balance)}</strong></div>)}</div>:<Empty text="Add your first cash, bank or mobile-wallet account."/>}</Card>
+      <div id="finance-accounts" className="finance-account-anchor">
+        <Card title="Accounts"><form className="form-grid" onSubmit={addAccount}><label>Name<input name="name" placeholder="Cash Wallet" required/></label><label>Type<select name="type"><option value="cash">Cash</option><option value="bank">Bank</option><option value="mobile_wallet">Mobile wallet</option><option value="credit">Credit</option><option value="investment">Investment</option><option value="other">Other</option></select></label><label>Opening balance<input name="opening" type="number" step="0.01" defaultValue="0"/></label><label>Low balance alert<input name="threshold" type="number" step="0.01" defaultValue="0"/></label><button>Add account</button></form>{accounts.length?<div className="account-list">{accounts.map(a=><div className="account-row" key={a.id}><div><b>{a.name}</b><small>{a.account_type}</small></div><strong className={Number(a.balance)<=Number(a.low_balance_threshold)&&Number(a.low_balance_threshold)>0?'negative':''}>{money(a.balance)}</strong></div>)}</div>:<Empty text="Add your first cash, bank or mobile-wallet account."/>}</Card>
+      </div>
     </div>
 
-    <Card title="Transfer between accounts"><form className="form-grid" onSubmit={transfer}><label>Date<input name="date" type="date" defaultValue={today()} required/></label><label>From<select name="from" required><option value="">Select</option>{accounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label><label>To<select name="to" required><option value="">Select</option>{accounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label><label>Amount<input name="amount" type="number" min="0.01" step="0.01" required/></label><label>Note<input name="note"/></label><button>Transfer</button></form></Card>
+    <Card title="Transfer between accounts"><form className="form-grid" onSubmit={transfer}><label>Date<input name="date" type="date" defaultValue={today()} required/></label><label>From<select name="from" required disabled={accounts.length<2}><option value="">{accounts.length<2?'Add at least two accounts':'Select'}</option>{accounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label><label>To<select name="to" required disabled={accounts.length<2}><option value="">{accounts.length<2?'Add at least two accounts':'Select'}</option>{accounts.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label><label>Amount<input name="amount" type="number" min="0.01" step="0.01" required/></label><label>Note<input name="note"/></label><button disabled={accounts.length<2}>{accounts.length<2?'Two accounts required':'Transfer'}</button></form></Card>
 
     <div className="grid-2 finance-grid">
       <Card title="Monthly category budget"><form className="form-grid" onSubmit={addBudget}><label>Month<input name="month" type="month" defaultValue={today().slice(0,7)} required/></label><label>Category<select name="category" required><option value="">Select</option>{expenseCategories.map(c=><option key={c.id} value={c.id}>{c.parent_name?`${c.parent_name} / `:''}{c.name}</option>)}</select></label><label>Amount<input name="amount" type="number" min="0" step="0.01" required/></label><button>Save budget</button></form>{budgets.length?<div className="table-wrap"><table><thead><tr><th>Category</th><th>Budget</th></tr></thead><tbody>{budgets.map(b=><tr key={b.id}><td>{b.pf_categories?.name}</td><td>{money(b.amount)}</td></tr>)}</tbody></table></div>:<Empty text="No budget set for this month."/>}</Card>
-
       <Card title="Savings goals"><form className="form-grid" onSubmit={addGoal}><label>Goal<input name="name" placeholder="Emergency fund" required/></label><label>Target<input name="target" type="number" min="0.01" step="0.01" required/></label><label>Saved now<input name="current" type="number" min="0" step="0.01" defaultValue="0"/></label><label>Target date<input name="date" type="date"/></label><button>Add goal</button></form>{goals.length?<div className="goal-list">{goals.map(g=>{const p=Math.min(100,(Number(g.current_amount)/Number(g.target_amount))*100);return <div className="goal-row" key={g.id}><div><b>{g.name}</b><small>{money(g.current_amount)} of {money(g.target_amount)}</small><div className="progress"><span style={{width:`${p}%`}}/></div></div><strong>{p.toFixed(0)}%</strong></div>})}</div>:<Empty text="No savings goal added."/>}</Card>
     </div>
 
