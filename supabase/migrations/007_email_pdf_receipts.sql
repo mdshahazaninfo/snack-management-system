@@ -37,6 +37,28 @@ grant select on public.order_email_deliveries to authenticated;
 create index if not exists order_email_deliveries_order_idx
   on public.order_email_deliveries(order_id, created_at desc);
 
+-- Preserve all existing member_balances columns and append receipt fields.
+create or replace view public.member_balances
+with (security_invoker = true)
+as
+select
+  m.id,
+  m.employee_id,
+  m.full_name,
+  m.department,
+  m.mobile,
+  m.status,
+  m.low_balance_threshold,
+  m.created_at,
+  coalesce(sum(w.amount),0)::numeric(12,2) as balance,
+  m.email,
+  m.email_receipt_enabled
+from public.members m
+left join public.wallet_transactions w on w.member_id = m.id
+group by m.id;
+
+grant select on public.member_balances to authenticated;
+
 -- Helper view for receipt email generation.
 create or replace view public.order_receipt_data
 with (security_invoker = true)
