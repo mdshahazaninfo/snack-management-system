@@ -6,6 +6,7 @@ import './mobile.css'
 import './premium.css'
 import './mobile-sector-menu.css'
 import './dashboard-mobile-kpis.css'
+import './email-receipts.css'
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App/></StrictMode>)
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`))
