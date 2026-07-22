@@ -27,17 +27,23 @@ Deno.serve(async request => {
     orderId = String(body?.order_id || '')
     if (!orderId) throw new Error('order_id is required')
 
-    const url = Deno.env.get('SUPABASE_URL')!
-    const anon = Deno.env.get('SUPABASE_ANON_KEY')!
-    const service = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const url = Deno.env.get('SUPABASE_URL')
+    const anon = Deno.env.get('SUPABASE_ANON_KEY')
+    const service = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const resendKey = Deno.env.get('RESEND_API_KEY')
+    const sender = Deno.env.get('RECEIPT_FROM_EMAIL')
+    if (!url || !anon || !service) throw new Error('Supabase function environment is incomplete')
+    if (!resendKey || !sender) throw new Error('Receipt email secrets are not configured')
+
     const authHeader = request.headers.get('Authorization') || ''
     const userClient = createClient(url, anon, { global: { headers: { Authorization: authHeader } } })
     const { data: { user }, error: authError } = await userClient.auth.getUser()
     if (authError || !user) throw new Error('Unauthorized')
 
     admin = createClient(url, service)
-    const { data: profile } = await admin.from('profiles').select('full_name,status').eq('id', user.id).single()
-    if (profile?.status !== 'active') throw new Error('Account is not active')
+    const { data: profile, error: profileError } = await admin.from('profiles').select('full_name,status,role').eq('id', user.id).single()
+    if (profileError || profile?.status !== 'active') throw new Error('Account is not active')
+    if (!['admin','cashier'].includes(String(profile.role))) throw new Error('Permission denied')
 
     const { data: receipt, error: receiptError } = await admin.from('order_receipt_data').select('*').eq('id', orderId).single()
     if (receiptError || !receipt) throw new Error(receiptError?.message || 'Order not found')
@@ -52,7 +58,8 @@ Deno.serve(async request => {
 
     await admin.from('orders').update({ receipt_email: recipient, email_status: 'pending', email_error: null }).eq('id', orderId)
     const { count } = await admin.from('order_email_deliveries').select('*', { count: 'exact', head: true }).eq('order_id', orderId)
-    const { data: delivery } = await admin.from('order_email_deliveries').insert({ order_id: orderId, recipient_email: recipient, attempt_no: (count || 0) + 1 }).select('id').single()
+    const { data: delivery, error: deliveryError } = await admin.from('order_email_deliveries').insert({ order_id: orderId, recipient_email: recipient, attempt_no: (count || 0) + 1 }).select('id').single()
+    if (deliveryError) throw deliveryError
     deliveryId = delivery?.id || ''
 
     const orderDate = new Date(receipt.created_at).toLocaleString('en-GB', { timeZone: 'Asia/Dhaka', dateStyle: 'medium', timeStyle: 'short' })
@@ -94,23 +101,23 @@ Deno.serve(async request => {
     page.drawText('AMOUNT', { x: 300, y: 428, size: 8, font: bold, color: muted })
     page.drawLine({ start:{x:44,y:420}, end:{x:376,y:420}, thickness:1, color:rgb(0.88,0.88,0.85) })
     let y = 402
-    for (const item of (items || []).slice(0, 10)) {
-      page.drawText(String(item.item_name).slice(0, 29), { x:44, y, size:9, font:regular, color:ink })
-      page.drawText(String(Number(item.quantity)), { x:249, y, size:9, font:regular, color:ink })
-      page.drawText(money(Number(item.quantity) * Number(item.unit_price)), { x:300, y, size:9, font:regular, color:ink })
-      y -= 19
+    for (const item of (items || []).slice(0, 12)) {
+      page.drawText(String(item.item_name).slice(0, 31), { x:44, y, size:8, font:regular, color:ink })
+      page.drawText(String(Number(item.quantity)), { x:249, y, size:8, font:regular, color:ink })
+      page.drawText(money(Number(item.quantity) * Number(item.unit_price)), { x:300, y, size:8, font:regular, color:ink })
+      y -= 15
     }
-    page.drawLine({ start:{x:44,y:y+7}, end:{x:376,y:y+7}, thickness:1, color:rgb(0.88,0.88,0.85) })
-    page.drawText('TOTAL', { x:44, y:y-12, size:11, font:bold, color:ink })
-    page.drawText(money(receipt.total), { x:300, y:y-12, size:11, font:bold, color:teal })
-    page.drawRectangle({ x:44, y:88, width:216, height:118, color:rgb(0.94,0.99,0.98) })
+    page.drawLine({ start:{x:44,y:y+6}, end:{x:376,y:y+6}, thickness:1, color:rgb(0.88,0.88,0.85) })
+    page.drawText('TOTAL', { x:44, y:y-10, size:10, font:bold, color:ink })
+    page.drawText(money(receipt.total), { x:300, y:y-10, size:10, font:bold, color:teal })
+    page.drawRectangle({ x:44, y:88, width:216, height:112, color:rgb(0.94,0.99,0.98) })
     ;[
       ['Wallet deduction', money(receipt.total)],
       ['Remaining balance', money(receipt.remaining_balance)],
       ['Order status', String(receipt.status).toUpperCase()],
       ['Processed by', profile?.full_name || 'SnackFlow User'],
     ].forEach(([label,value], index) => {
-      const lineY = 179 - index * 23
+      const lineY = 175 - index * 22
       page.drawText(label, { x:57, y:lineY, size:8, font:regular, color:muted })
       page.drawText(String(value).slice(0,24), { x:145, y:lineY, size:8, font:bold, color:ink })
     })
@@ -124,9 +131,9 @@ Deno.serve(async request => {
 
     const response = await fetch('https://api.resend.com/emails', {
       method:'POST',
-      headers:{ Authorization:`Bearer ${Deno.env.get('RESEND_API_KEY')}`, 'Content-Type':'application/json' },
+      headers:{ Authorization:`Bearer ${resendKey}`, 'Content-Type':'application/json' },
       body:JSON.stringify({
-        from:Deno.env.get('RECEIPT_FROM_EMAIL'), to:[recipient],
+        from:sender, to:[recipient],
         subject:`SnackFlow Bill ${receipt.invoice_no} - ${money(receipt.total)}`,
         html,
         attachments:[{ filename:`${receipt.invoice_no}.pdf`, content:pdfBase64 }],
