@@ -174,10 +174,10 @@ join public.members m on m.id = o.member_id;
 grant select on public.order_receipt_data to authenticated;
 revoke all on public.order_receipt_data from anon;
 
--- Operating expenses must be positive and cannot be posted or moved into a
--- closed month. Direct table inserts now receive the same accounting controls.
+-- New expenses must be positive. NOT VALID preserves any legacy zero rows so
+-- this migration can run safely; all new or changed rows are still enforced.
 alter table public.expenses drop constraint if exists expenses_amount_check;
-alter table public.expenses add constraint expenses_amount_check check (amount > 0);
+alter table public.expenses add constraint expenses_amount_check check (amount > 0) not valid;
 
 create or replace function public.guard_expense_write()
 returns trigger
