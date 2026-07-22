@@ -9,6 +9,7 @@ const dateParts = (date: Date) => new Intl.DateTimeFormat('en-CA', {
 }).format(date)
 
 export const today = () => dateParts(new Date())
+export const businessDayStartIso = (date = today()) => `${date}T00:00:00+06:00`
 
 export const dateAfterDays = (days: number) => {
   const date = new Date()
