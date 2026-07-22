@@ -10,6 +10,7 @@ const adminItems = [
   ['/orders', 'Orders'],
   ['/expenses', 'Expenses'],
   ['/reports', 'Reports'],
+  ['/personal-finance', 'Personal Finance'],
   ['/settings', 'Settings'],
 ]
 
@@ -18,6 +19,7 @@ const userItems = [
   ['/wallet', 'Wallet'],
   ['/expenses', 'Expenses'],
   ['/reports', 'Reports'],
+  ['/personal-finance', 'Personal Finance'],
 ]
 
 export function Layout() {
