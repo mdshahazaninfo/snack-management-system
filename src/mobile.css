@@ -3,15 +3,48 @@
   .shell { display: block; min-width: 0; min-height: 100vh; }
 
   .sidebar {
-    position: static;
+    position: sticky;
+    top: 0;
+    z-index: 30;
     width: 100%;
     height: auto;
-    padding: 14px 14px 12px;
-    gap: 14px;
+    padding: 10px 12px;
+    gap: 0;
+    box-shadow: 0 6px 18px rgba(5, 35, 33, .16);
   }
 
-  .sidebar .brand { justify-content: center; }
-  .sidebar .brand > span { width: 46px; height: 46px; }
+  .sidebar-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .sidebar .brand { justify-content: flex-start; min-width: 0; }
+  .sidebar .brand > span { width: 42px; height: 42px; flex: 0 0 42px; }
+  .sidebar .brand b { font-size: 1rem; }
+  .sidebar .brand small { font-size: .78rem; }
+
+  .mobile-menu-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 42px;
+    padding: 9px 12px;
+    border: 1px solid rgba(255,255,255,.16);
+    background: #17413e;
+    white-space: nowrap;
+  }
+
+  .mobile-menu-button span { font-size: 1rem; line-height: 1; }
+
+  .sidebar-panel {
+    display: none;
+    padding-top: 12px;
+  }
+
+  .sidebar.mobile-open .sidebar-panel { display: block; }
 
   .sidebar nav {
     width: 100%;
@@ -33,12 +66,14 @@
   }
 
   .sidebar-user {
-    margin-top: 0;
+    margin-top: 12px;
     display: flex;
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,.12);
   }
 
   .sidebar-user .user-copy {
@@ -48,7 +83,7 @@
   }
 
   .sidebar-user .user-copy span {
-    max-width: 68vw;
+    max-width: 62vw;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -79,88 +114,34 @@
   .orders-grid > * { min-width: 0; width: 100%; }
   .orders-grid label, .orders-grid input, .orders-grid select { width: 100%; max-width: 100%; }
 
-  .item-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-  }
-
-  .item-btn {
-    min-width: 0;
-    width: 100%;
-    padding: 12px 10px;
-    overflow: hidden;
-  }
-
-  .item-btn b, .item-btn small {
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
+  .item-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .item-btn { min-width: 0; width: 100%; padding: 12px 10px; overflow: hidden; }
+  .item-btn b, .item-btn small { display: block; overflow: hidden; text-overflow: ellipsis; }
   .item-btn b { white-space: nowrap; font-size: .95rem; }
   .item-btn small { white-space: normal; font-size: .76rem; line-height: 1.25; }
 
-  .cart-row {
-    width: 100%;
-    min-width: 0;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 10px;
-  }
-
+  .cart-row { width: 100%; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; }
   .cart-row > div:first-child { min-width: 0; }
-  .cart-row > div:first-child b,
-  .cart-row > div:first-child small {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+  .cart-row > div:first-child b, .cart-row > div:first-child small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cart-row > div:last-child { display: grid; grid-template-columns: repeat(3, 38px); gap: 4px; }
+  .cart-row .tiny { width: 38px; height: 38px; min-height: 38px; padding: 0; display: grid; place-items: center; font-size: 1rem; }
 
-  .cart-row > div:last-child {
-    display: grid;
-    grid-template-columns: repeat(3, 38px);
-    gap: 4px;
-  }
-
-  .cart-row .tiny {
-    width: 38px;
-    height: 38px;
-    min-height: 38px;
-    padding: 0;
-    display: grid;
-    place-items: center;
-    font-size: 1rem;
-  }
-
-  .cart-total {
-    width: 100%;
-    min-width: 0;
-    gap: 12px;
-    font-size: 1.15rem;
-  }
-
-  .cart-total strong {
-    min-width: 0;
-    text-align: right;
-    overflow-wrap: anywhere;
-  }
-
+  .cart-total { width: 100%; min-width: 0; gap: 12px; font-size: 1.15rem; }
+  .cart-total strong { min-width: 0; text-align: right; overflow-wrap: anywhere; }
   .orders-grid .card > button { width: 100%; }
   .receipt { flex-direction: column; align-items: center; text-align: center; }
 
-  .table-wrap {
-    width: 100%;
-    max-width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
+  .table-wrap { width: 100%; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
   table { min-width: 650px; }
   th, td { padding: .65rem .5rem; }
   button { min-height: 44px; }
   input, select { min-height: 44px; font-size: 16px; }
+}
+
+@media (min-width: 781px) {
+  .sidebar-top { display: contents; }
+  .sidebar-panel { display: contents; }
+  .mobile-menu-button { display: none; }
 }
 
 @media (max-width: 420px) {
