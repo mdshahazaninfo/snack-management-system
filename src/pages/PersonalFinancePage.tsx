@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
-import { downloadCsv, money, today } from '../lib/utils'
+import { dateAfterDays, downloadCsv, money, monthLastDay, today } from '../lib/utils'
 import { Card, Empty, ErrorText, Stat, SuccessText } from '../components/Ui'
 
 type Account = { id:string; name:string; account_type:string; balance:number; low_balance_threshold:number; active:boolean }
@@ -11,7 +11,6 @@ type Goal = { id:string; name:string; target_amount:number; current_amount:numbe
 type Recurring = { id:string; title:string; kind:string; amount:number; frequency:string; next_due_date:string; active:boolean }
 
 const monthStart = () => `${today().slice(0,7)}-01`
-const monthEnd = () => { const d=new Date(); return new Date(d.getFullYear(),d.getMonth()+1,0).toISOString().slice(0,10) }
 
 export function PersonalFinancePage(){
   const [accounts,setAccounts]=useState<Account[]>([])
@@ -45,7 +44,7 @@ export function PersonalFinancePage(){
 
   useEffect(()=>{void load()},[])
 
-  const currentMonth=transactions.filter(x=>x.transaction_date>=monthStart()&&x.transaction_date<=monthEnd())
+  const currentMonth=transactions.filter(x=>x.transaction_date>=monthStart()&&x.transaction_date<=monthLastDay())
   const income=currentMonth.filter(x=>x.kind==='income').reduce((s,x)=>s+Number(x.amount),0)
   const expense=currentMonth.filter(x=>x.kind==='expense').reduce((s,x)=>s+Number(x.amount),0)
   const savings=income-expense
@@ -53,24 +52,24 @@ export function PersonalFinancePage(){
   const totalBalance=accounts.reduce((s,a)=>s+Number(a.balance),0)
   const budgetTotal=budgets.reduce((s,b)=>s+Number(b.amount),0)
   const remainingBudget=budgetTotal-expense
-  const upcoming=recurring.filter(x=>x.next_due_date>=today()&&x.next_due_date<=new Date(Date.now()+7*86400000).toISOString().slice(0,10)).length
+  const upcoming=recurring.filter(x=>x.next_due_date>=today()&&x.next_due_date<=dateAfterDays(7)).length
   const expenseCategories=useMemo(()=>categories.filter(c=>c.kind==='expense'),[categories])
 
-  const done=(message:string)=>{setSuccess(message);setError(null);void load()}
+  const done=async(message:string)=>{setSuccess(message);setError(null);await load()}
   const goToAccounts=()=>document.getElementById('finance-accounts')?.scrollIntoView({behavior:'smooth',block:'start'})
 
   const addAccount=async(e:FormEvent<HTMLFormElement>)=>{
     e.preventDefault()
     const form=e.currentTarget
     const f=new FormData(form)
-    const{error:accountError}=await supabase.from('pf_accounts').insert({
-      name:f.get('name'),
-      account_type:f.get('type'),
-      opening_balance:Number(f.get('opening')||0),
-      low_balance_threshold:Number(f.get('threshold')||0),
+    const {error:accountError}=await supabase.rpc('pf_create_account',{
+      p_name:String(f.get('name')||'').trim(),
+      p_account_type:String(f.get('type')||'cash'),
+      p_opening_balance:Number(f.get('opening')||0),
+      p_low_balance_threshold:Number(f.get('threshold')||0),
     })
     if(accountError)setError(accountError.message)
-    else{form.reset();done('Account added. You can now select it in income or expense entry.')}
+    else{form.reset();await done('Account added. You can now select it in income or expense entry.')}
   }
 
   const addTransaction=async(e:FormEvent<HTMLFormElement>)=>{
@@ -88,13 +87,13 @@ export function PersonalFinancePage(){
       tags:String(f.get('tags')||'').split(',').map(x=>x.trim()).filter(Boolean),
     })
     if(transactionError)setError(transactionError.message)
-    else{form.reset();done('Transaction saved.')}
+    else{form.reset();await done('Transaction saved.')}
   }
 
-  const transfer=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const f=new FormData(e.currentTarget);const{error:transferError}=await supabase.rpc('pf_transfer',{p_from_account:f.get('from'),p_to_account:f.get('to'),p_amount:Number(f.get('amount')),p_date:f.get('date'),p_note:f.get('note')});if(transferError)setError(transferError.message);else{e.currentTarget.reset();done('Transfer completed.')}}
-  const addBudget=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const f=new FormData(e.currentTarget);const{error:budgetError}=await supabase.from('pf_budgets').upsert({month_start:`${f.get('month')}-01`,category_id:f.get('category'),amount:Number(f.get('amount'))},{onConflict:'owner_id,month_start,category_id'});if(budgetError)setError(budgetError.message);else done('Budget saved.')}
-  const addGoal=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const f=new FormData(e.currentTarget);const{error:goalError}=await supabase.from('pf_goals').insert({name:f.get('name'),target_amount:Number(f.get('target')),current_amount:Number(f.get('current')||0),target_date:f.get('date')||null});if(goalError)setError(goalError.message);else{e.currentTarget.reset();done('Savings goal added.')}}
-  const addRecurring=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const f=new FormData(e.currentTarget);const{error:recurringError}=await supabase.from('pf_recurring').insert({title:f.get('title'),kind:f.get('kind'),amount:Number(f.get('amount')),account_id:f.get('account')||null,category_id:f.get('category')||null,frequency:f.get('frequency'),next_due_date:f.get('date')});if(recurringError)setError(recurringError.message);else{e.currentTarget.reset();done('Recurring reminder added.')}}
+  const transfer=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const f=new FormData(e.currentTarget);const{error:transferError}=await supabase.rpc('pf_transfer',{p_from_account:f.get('from'),p_to_account:f.get('to'),p_amount:Number(f.get('amount')),p_date:f.get('date'),p_note:f.get('note')});if(transferError)setError(transferError.message);else{e.currentTarget.reset();await done('Transfer completed.')}}
+  const addBudget=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const f=new FormData(e.currentTarget);const{error:budgetError}=await supabase.from('pf_budgets').upsert({month_start:`${f.get('month')}-01`,category_id:f.get('category'),amount:Number(f.get('amount'))},{onConflict:'owner_id,month_start,category_id'});if(budgetError)setError(budgetError.message);else await done('Budget saved.')}
+  const addGoal=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const f=new FormData(e.currentTarget);const{error:goalError}=await supabase.from('pf_goals').insert({name:f.get('name'),target_amount:Number(f.get('target')),current_amount:Number(f.get('current')||0),target_date:f.get('date')||null});if(goalError)setError(goalError.message);else{e.currentTarget.reset();await done('Savings goal added.')}}
+  const addRecurring=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();const f=new FormData(e.currentTarget);const{error:recurringError}=await supabase.from('pf_recurring').insert({title:f.get('title'),kind:f.get('kind'),amount:Number(f.get('amount')),account_id:f.get('account')||null,category_id:f.get('category')||null,frequency:f.get('frequency'),next_due_date:f.get('date')});if(recurringError)setError(recurringError.message);else{e.currentTarget.reset();await done('Recurring reminder added.')}}
 
   const exportRows=transactions.map(x=>({date:x.transaction_date,type:x.kind,account:x.pf_accounts?.name||'',category:x.pf_categories?.name||'',amount:x.amount,description:x.description||'',method:x.payment_method||'',priority:x.priority||''}))
 
@@ -124,7 +123,7 @@ export function PersonalFinancePage(){
       </Card>
 
       <div id="finance-accounts" className="finance-account-anchor">
-        <Card title="Accounts"><form className="form-grid" onSubmit={addAccount}><label>Name<input name="name" placeholder="Cash Wallet" required/></label><label>Type<select name="type"><option value="cash">Cash</option><option value="bank">Bank</option><option value="mobile_wallet">Mobile wallet</option><option value="credit">Credit</option><option value="investment">Investment</option><option value="other">Other</option></select></label><label>Opening balance<input name="opening" type="number" step="0.01" defaultValue="0"/></label><label>Low balance alert<input name="threshold" type="number" step="0.01" defaultValue="0"/></label><button>Add account</button></form>{accounts.length?<div className="account-list">{accounts.map(a=><div className="account-row" key={a.id}><div><b>{a.name}</b><small>{a.account_type}</small></div><strong className={Number(a.balance)<=Number(a.low_balance_threshold)&&Number(a.low_balance_threshold)>0?'negative':''}>{money(a.balance)}</strong></div>)}</div>:<Empty text="Add your first cash, bank or mobile-wallet account."/>}</Card>
+        <Card title="Accounts"><form className="form-grid" onSubmit={addAccount}><label>Name<input name="name" placeholder="Cash Wallet" required/></label><label>Type<select name="type"><option value="cash">Cash</option><option value="bank">Bank</option><option value="mobile_wallet">Mobile wallet</option><option value="credit">Credit</option><option value="investment">Investment</option><option value="other">Other</option></select></label><label>Opening balance<input name="opening" type="number" step="0.01" defaultValue="0"/></label><label>Low balance alert<input name="threshold" type="number" step="0.01" min="0" defaultValue="0"/></label><button>Add account</button></form>{accounts.length?<div className="account-list">{accounts.map(a=><div className="account-row" key={a.id}><div><b>{a.name}</b><small>{a.account_type}</small></div><strong className={Number(a.balance)<=Number(a.low_balance_threshold)&&Number(a.low_balance_threshold)>0?'negative':''}>{money(a.balance)}</strong></div>)}</div>:<Empty text="Add your first cash, bank or mobile-wallet account."/>}</Card>
       </div>
     </div>
 
