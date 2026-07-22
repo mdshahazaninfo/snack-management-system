@@ -25,10 +25,10 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 22
-          cache: npm
+          package-manager-cache: false
 
-      - name: Install locked dependencies
-        run: npm ci --no-audit --no-fund
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
 
       - name: Type check
         run: npm run typecheck
