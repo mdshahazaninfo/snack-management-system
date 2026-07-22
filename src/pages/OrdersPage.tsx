@@ -11,7 +11,8 @@ type Cart = Item & { qty:number }
 type Order = { id:string; invoice_no:string; total:number; status:string; created_at:string; email_status?:string; email_error?:string|null; receipt_email?:string|null; members:{full_name:string}|null }
 type Receipt = Order & { employee_id:string; remaining_balance:number; items:Cart[] }
 
-const emailLabel = (status?:string) => ({sent:'Sent',failed:'Failed',skipped:'Skipped',pending:'Sending',not_requested:'Not sent'}[status || 'not_requested'] || status)
+const emailLabels: Record<string,string> = { sent:'Sent', failed:'Failed', skipped:'Skipped', pending:'Sending', not_requested:'Not sent' }
+const emailLabel = (status?:string) => emailLabels[status || 'not_requested'] || status || 'Not sent'
 
 export function OrdersPage(){
  const{profile}=useAuth();const isAdmin=profile?.role==='admin'
