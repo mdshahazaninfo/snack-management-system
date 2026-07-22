@@ -1,7 +1,25 @@
 export const money = (value: number | string | null | undefined) =>
   new Intl.NumberFormat('en-BD', { style: 'currency', currency: 'BDT', maximumFractionDigits: 2 }).format(Number(value || 0))
 
-export const today = () => new Date().toISOString().slice(0, 10)
+const dateParts = (date: Date) => new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Dhaka',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+}).format(date)
+
+export const today = () => dateParts(new Date())
+
+export const dateAfterDays = (days: number) => {
+  const date = new Date()
+  date.setUTCDate(date.getUTCDate() + days)
+  return dateParts(date)
+}
+
+export const monthLastDay = () => {
+  const [year, month] = today().split('-').map(Number)
+  return `${year}-${String(month).padStart(2, '0')}-${String(new Date(year, month, 0).getDate()).padStart(2, '0')}`
+}
 
 export function downloadCsv(filename: string, rows: Record<string, unknown>[]) {
   if (!rows.length) return
@@ -9,10 +27,11 @@ export function downloadCsv(filename: string, rows: Record<string, unknown>[]) {
   const escape = (v: unknown) => `"${String(v ?? '').replaceAll('"', '""')}"`
   const csv = [keys.map(escape).join(','), ...rows.map(row => keys.map(k => escape(row[k])).join(','))].join('\n')
   const a = document.createElement('a')
-  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+  const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }))
+  a.href = url
   a.download = filename
   a.click()
-  URL.revokeObjectURL(a.href)
+  URL.revokeObjectURL(url)
 }
 
 export function notify(title: string, body: string) {
