@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { money, today } from '../lib/utils'
+import { businessDayStartIso, money, today } from '../lib/utils'
 import { useAuth } from '../context/AuthContext'
+import { ErrorText } from '../components/Ui'
 
 type Order={total:number;estimated_cost:number;status:string;created_at:string}
 type Balance={full_name:string;balance:number;low_balance_threshold:number}
@@ -12,24 +13,24 @@ type Recurring={title:string;amount:number;next_due_date:string}
 
 export function DashboardPage(){
  const {profile}=useAuth();const[name,setName]=useState(profile?.full_name||'there')
- const[orders,setOrders]=useState<Order[]>([]),[balances,setBalances]=useState<Balance[]>([]),[pfTx,setPfTx]=useState<PfTx[]>([]),[accounts,setAccounts]=useState<Account[]>([]),[recurring,setRecurring]=useState<Recurring[]>([]),[period,setPeriod]=useState<'today'|'month'>('month')
+ const[orders,setOrders]=useState<Order[]>([]),[balances,setBalances]=useState<Balance[]>([]),[pfTx,setPfTx]=useState<PfTx[]>([]),[accounts,setAccounts]=useState<Account[]>([]),[recurring,setRecurring]=useState<Recurring[]>([]),[period,setPeriod]=useState<'today'|'month'>('month'),[error,setError]=useState<string|null>(null)
  useEffect(()=>{setName(profile?.full_name||'there')},[profile])
- useEffect(()=>{(async()=>{const month=`${today().slice(0,7)}-01`;const orderFrom=period==='today'?`${today()}T00:00:00`:`${month}T00:00:00`;const[o,b,t,a,r]=await Promise.all([
-  supabase.from('orders').select('total,estimated_cost,status,created_at').gte('created_at',orderFrom),
-  supabase.from('member_balances').select('full_name,balance,low_balance_threshold').order('balance').limit(8),
-  supabase.from('pf_transactions').select('transaction_date,kind,amount,description').gte('transaction_date',month).order('transaction_date',{ascending:false}).limit(20),
+ useEffect(()=>{void(async()=>{setError(null);const month=`${today().slice(0,7)}-01`;const orderFrom=businessDayStartIso(period==='today'?today():month);const[o,b,t,a,r]=await Promise.all([
+  supabase.from('orders').select('total,estimated_cost,status,created_at').gte('created_at',orderFrom).order('created_at',{ascending:false}),
+  supabase.from('member_balances').select('full_name,balance,low_balance_threshold').order('balance'),
+  supabase.from('pf_transactions').select('transaction_date,kind,amount,description').gte('transaction_date',month).order('transaction_date',{ascending:false}).order('created_at',{ascending:false}),
   supabase.from('pf_account_balances').select('name,balance').order('balance',{ascending:false}),
   supabase.from('pf_recurring').select('title,amount,next_due_date').eq('active',true).gte('next_due_date',today()).order('next_due_date').limit(5),
- ]);setOrders((o.data as Order[])||[]);setBalances((b.data as Balance[])||[]);setPfTx((t.data as PfTx[])||[]);setAccounts((a.data as Account[])||[]);setRecurring((r.data as Recurring[])||[])})()},[period])
+ ]);const first=[o.error,b.error,t.error,a.error,r.error].find(Boolean);if(first){setError(first.message);return}setOrders((o.data as Order[])||[]);setBalances((b.data as Balance[])||[]);setPfTx((t.data as PfTx[])||[]);setAccounts((a.data as Account[])||[]);setRecurring((r.data as Recurring[])||[])})()},[period])
  const posted=orders.filter(o=>o.status==='posted'),sales=posted.reduce((s,o)=>s+Number(o.total),0),cost=posted.reduce((s,o)=>s+Number(o.estimated_cost||0),0),margin=sales-cost,low=balances.filter(x=>Number(x.balance)<150)
  const income=pfTx.filter(x=>x.kind==='income').reduce((s,x)=>s+Number(x.amount),0),expense=pfTx.filter(x=>x.kind==='expense').reduce((s,x)=>s+Number(x.amount),0),net=income-expense,totalBalance=accounts.reduce((s,x)=>s+Number(x.balance),0),savingsRate=income>0?Math.max(0,net/income*100):0
  const activity=useMemo(()=>[
-  ...posted.slice(0,4).map((o,i)=>({label:`Snack order ${i+1}`,value:money(o.total),date:o.created_at,type:'order'})),
+  ...posted.slice(0,4).map(o=>({label:'Snack order',value:money(o.total),date:o.created_at,type:'order'})),
   ...pfTx.slice(0,4).map(x=>({label:x.description||x.kind,value:`${x.kind==='expense'?'-':'+'}${money(x.amount)}`,date:x.transaction_date,type:x.kind})),
  ].sort((a,b)=>String(b.date).localeCompare(String(a.date))).slice(0,6),[posted,pfTx])
  const hour=new Date().getHours(),greeting=hour<12?'Good morning':hour<18?'Good afternoon':'Good evening'
  const periodLabel=period==='today'?'Today':'This month'
- return <div className="premium-page main-dashboard"><header className="premium-heading hero-heading"><div><span className="eyebrow">SNACKFLOW MICRO ERP</span><h1>{greeting}, {name}</h1><p>Your snack operations and personal finance at a glance.</p></div><div className="heading-actions"><div className="period-switch"><button className={period==='today'?'active':''} onClick={()=>setPeriod('today')}>Today</button><button className={period==='month'?'active':''} onClick={()=>setPeriod('month')}>This month</button></div><Link className="premium-button" to="/orders">＋ Quick order</Link></div></header>
+ return <div className="premium-page main-dashboard"><ErrorText error={error}/><header className="premium-heading hero-heading"><div><span className="eyebrow">SNACKFLOW MICRO ERP</span><h1>{greeting}, {name}</h1><p>Your snack operations and personal finance at a glance.</p></div><div className="heading-actions"><div className="period-switch"><button className={period==='today'?'active':''} onClick={()=>setPeriod('today')}>Today</button><button className={period==='month'?'active':''} onClick={()=>setPeriod('month')}>This month</button></div><Link className="premium-button" to="/orders">＋ Quick order</Link></div></header>
  <div className="dashboard-progress"><div><span>Snack performance</span><div className="bar-track"><i style={{width:`${Math.min(100,sales?margin/sales*100:0)}%`}}/></div><b>{sales?`${(margin/sales*100).toFixed(0)}% margin`:'No sales yet'}</b></div><div><span>Personal savings</span><div className="bar-track yellow"><i style={{width:`${Math.min(100,savingsRate)}%`}}/></div><b>{savingsRate.toFixed(0)}% saved</b></div></div>
  <div className="hero-metrics dashboard-summary-cards">
   <Link to="/orders" className="dashboard-summary-card orders-summary"><span className="summary-icon">#</span><small>Orders</small><strong>{posted.length}</strong><em>{periodLabel}</em></Link>
