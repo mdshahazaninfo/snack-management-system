@@ -1,4 +1,4 @@
-const CACHE = 'snackflow-v5'
+const CACHE = 'snackflow-v6'
 const APP = '/snack-management-system/'
 
 self.addEventListener('install', event => {
