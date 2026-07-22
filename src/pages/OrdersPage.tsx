@@ -30,16 +30,39 @@ export function OrdersPage(){
  const total=useMemo(()=>cart.reduce((a,x)=>a+x.selling_price*x.qty,0),[cart])
  const add=(i:Item)=>setCart(c=>c.some(x=>x.id===i.id)?c.map(x=>x.id===i.id?{...x,qty:x.qty+1}:x):[...c,{...i,qty:1}])
 
- const sendReceipt=async(orderId:string)=>{setSending(orderId);const{data,error:sendError}=await supabase.functions.invoke('send-order-receipt',{body:{order_id:orderId}});setSending(null);if(sendError)setError(`Order saved, but email failed: ${sendError.message}`);else if(data?.error)setError(`Order saved, but email failed: ${data.error}`);else setSuccess(data?.status==='sent'?`PDF bill emailed to ${data.email}.`:'Order saved. Email skipped because no enabled member email was found.');await load()}
+ const sendReceipt=async(orderId:string,invoiceNo?:string)=>{
+  setSending(orderId);setError(null)
+  const{data,error:sendError}=await supabase.functions.invoke('send-order-receipt',{body:{order_id:orderId}})
+  setSending(null)
+  if(sendError||data?.error){
+   setSuccess(null)
+   const detail=data?.error||sendError?.message||'Unknown email error'
+   const setupHint=detail.includes('Failed to send a request')?' The Supabase Edge Function is not deployed or is unreachable. Deploy send-order-receipt, then press Email to retry.':''
+   setError(`Order ${invoiceNo||''} was saved and wallet deduction completed, but the PDF email was not sent.${setupHint}`)
+  }else if(data?.status==='sent'){
+   setError(null);setSuccess(`Order ${invoiceNo||''} saved. PDF bill emailed to ${data.email}.`)
+  }else{
+   setError(null);setSuccess(`Order ${invoiceNo||''} saved. Email skipped because the member has no enabled email address.`)
+  }
+  await load()
+ }
 
- const post=async()=>{setError(null);setSuccess(null);if(!memberId||!cart.length)return setError('Select a member and add at least one item.')
+ const post=async()=>{
+  setError(null);setSuccess(null)
+  if(!memberId||!cart.length)return setError('Select a member and add at least one item.')
   const selected=members.find(m=>m.id===memberId),cartSnapshot=cart.map(x=>({...x}))
   const{data,error:postError}=await supabase.rpc('create_order',{p_member_id:memberId,p_items:cart.map(x=>({menu_item_id:x.id,quantity:x.qty})),p_idempotency_key:crypto.randomUUID()})
   if(postError)return setError(postError.message)
   const order=Array.isArray(data)?data[0]:data
   setCart([])
-  if(order&&selected){const receiptOrder={...order,members:{full_name:selected.full_name},employee_id:selected.employee_id,remaining_balance:Number(selected.balance)-Number(order.total),items:cartSnapshot} as Receipt;setReceipt(receiptOrder);notify('SnackFlow order posted',`${receiptOrder.invoice_no} — ${money(receiptOrder.total)}`);void sendReceipt(order.id)}
-  setSuccess(selected?.email&&selected.email_receipt_enabled?'Order posted. Preparing PDF bill email…':'Order posted. Add/enable member email to send a PDF bill.');await load()
+  if(order&&selected){
+   const receiptOrder={...order,members:{full_name:selected.full_name},employee_id:selected.employee_id,remaining_balance:Number(selected.balance)-Number(order.total),items:cartSnapshot} as Receipt
+   setReceipt(receiptOrder)
+   notify('SnackFlow order posted',`${receiptOrder.invoice_no} — ${money(receiptOrder.total)}`)
+   if(selected.email&&selected.email_receipt_enabled)void sendReceipt(order.id,order.invoice_no)
+   else setSuccess(`Order ${order.invoice_no} saved. Add and enable the member email to send a PDF bill.`)
+  }
+  await load()
  }
 
  const voidOrder=async(id:string)=>{if(!isAdmin||!confirm('Void this order and refund the wallet?'))return;const{error:voidError}=await supabase.rpc('void_order',{p_order_id:id,p_reason:'Voided from application'});if(voidError)setError(voidError.message);else await load()}
@@ -51,6 +74,6 @@ export function OrdersPage(){
   <div className="grid-2 orders-grid"><Card title="Build order"><label>Member<select value={memberId} onChange={e=>setMemberId(e.target.value)}><option value="">Select member</option>{members.map(m=><option key={m.id} value={m.id}>{m.employee_id} — {m.full_name} ({money(m.balance)}){m.email?' · Email ready':''}</option>)}</select></label><label>Search by name / SKU<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Scan or type…"/></label><div className="item-grid">{shown.map(i=><button className="item-btn" key={i.id} onClick={()=>add(i)}><b>{i.name}</b><small>{i.sku} · {money(i.selling_price)}</small></button>)}</div></Card>
   <Card title="Cart">{cart.length?<>{cart.map(x=><div className="cart-row" key={x.id}><div><b>{x.name}</b><small>{x.qty} × {money(x.selling_price)}</small></div><div><button className="tiny" onClick={()=>setCart(c=>c.map(y=>y.id===x.id?{...y,qty:Math.max(1,y.qty-1)}:y))}>−</button><button className="tiny" onClick={()=>setCart(c=>c.map(y=>y.id===x.id?{...y,qty:y.qty+1}:y))}>+</button><button className="tiny danger-btn" onClick={()=>setCart(c=>c.filter(y=>y.id!==x.id))}>×</button></div></div>)}<div className="cart-total"><span>Total</span><strong>{money(total)}</strong></div><button onClick={post}>Post order & email bill</button></>:<Empty text="Add menu items to begin."/>}</Card></div>
   {receipt&&<Card title="Latest digital receipt" actions={<button className="secondary" onClick={()=>window.print()}>Print / PDF</button>}><div className="receipt digital-receipt"><QRCodeSVG value={qrSummary} size={112}/><div><h3>{receipt.invoice_no}</h3><p>{receipt.members?.full_name} · {receipt.employee_id}</p><strong>{money(receipt.total)}</strong><small>QR contains the bill summary text.</small></div></div></Card>}
-  <Card title="Recent orders">{orders.length?<div className="table-wrap"><table><thead><tr><th>Invoice</th><th>Member</th><th>Time</th><th>Total</th><th>Status</th><th>Email bill</th><th/></tr></thead><tbody>{orders.map(o=><tr key={o.id}><td>{o.invoice_no}</td><td>{o.members?.full_name}</td><td>{new Date(o.created_at).toLocaleString()}</td><td>{money(o.total)}</td><td>{o.status}</td><td><span className={`pill email-${o.email_status||'not_requested'}`} title={o.email_error||''}>{emailLabel(o.email_status)}</span>{o.receipt_email&&<small className="table-subtext">{o.receipt_email}</small>}</td><td><div className="row-actions">{o.status==='posted'&&<button className="tiny secondary" disabled={sending===o.id} onClick={()=>void sendReceipt(o.id)}>{sending===o.id?'…':'Email'}</button>}{isAdmin&&o.status==='posted'&&<button className="tiny danger-btn" onClick={()=>void voidOrder(o.id)}>Void</button>}</div></td></tr>)}</tbody></table></div>:<Empty/>}</Card>
+  <Card title="Recent orders">{orders.length?<div className="table-wrap"><table><thead><tr><th>Invoice</th><th>Member</th><th>Time</th><th>Total</th><th>Status</th><th>Email bill</th><th/></tr></thead><tbody>{orders.map(o=><tr key={o.id}><td>{o.invoice_no}</td><td>{o.members?.full_name}</td><td>{new Date(o.created_at).toLocaleString()}</td><td>{money(o.total)}</td><td>{o.status}</td><td><span className={`pill email-${o.email_status||'not_requested'}`} title={o.email_error||''}>{emailLabel(o.email_status)}</span>{o.receipt_email&&<small className="table-subtext">{o.receipt_email}</small>}</td><td><div className="row-actions">{o.status==='posted'&&<button className="tiny secondary" disabled={sending===o.id} onClick={()=>void sendReceipt(o.id,o.invoice_no)}>{sending===o.id?'…':'Email'}</button>}{isAdmin&&o.status==='posted'&&<button className="tiny danger-btn" onClick={()=>void voidOrder(o.id)}>Void</button>}</div></td></tr>)}</tbody></table></div>:<Empty/>}</Card>
  </>
 }
