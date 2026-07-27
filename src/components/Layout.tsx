@@ -19,6 +19,7 @@ const adminGroups: NavGroup[] = [
   { label: 'Personal Finance', items: [
     { to: '/personal-finance', label: 'Finance Overview' },
     { to: '/personal-finance/manage', label: 'Finance Manager' },
+    { to: '/personal-finance/accounts', label: 'Finance Accounts' },
   ] },
   { label: 'System', items: [{ to: '/settings', label: 'Settings' }] },
 ]
@@ -33,6 +34,7 @@ const userGroups: NavGroup[] = [
   { label: 'Personal Finance', items: [
     { to: '/personal-finance', label: 'Finance Overview' },
     { to: '/personal-finance/manage', label: 'Finance Manager' },
+    { to: '/personal-finance/accounts', label: 'Finance Accounts' },
   ] },
 ]
 
