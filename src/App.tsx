@@ -14,6 +14,7 @@ import { ExpensesPage } from './pages/ExpensesPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { PersonalFinancePage } from './pages/PersonalFinancePage'
+import { PersonalFinanceAccountsPage } from './pages/PersonalFinanceAccountsPage'
 
 function SetupRequired(){return <div className="setup"><div className="auth-card"><h1>Configuration required</h1><p>Add the following GitHub Actions secrets, then re-run the Pages workflow:</p><code>VITE_SUPABASE_URL</code><code>VITE_SUPABASE_PUBLISHABLE_KEY</code><p>Run the Supabase migrations in order.</p></div></div>}
 function Protected(){const{session,profile,loading}=useAuth();if(loading)return <div className="loading">Loading SnackFlow…</div>;if(!session)return <Navigate to="/login" replace/>;if(profile?.status!=='active')return <div className="setup"><div className="auth-card"><h1>Account pending</h1><p>Your account is not active. Ask an Admin to approve the same email address.</p></div></div>;return <Layout/>}
@@ -30,6 +31,7 @@ function AppRoutes(){const{session}=useAuth();return <Routes>
     <Route path="reports" element={<ReportsPage/>}/>
     <Route path="personal-finance" element={<FinanceOverviewPage/>}/>
     <Route path="personal-finance/manage" element={<PersonalFinancePage/>}/>
+    <Route path="personal-finance/accounts" element={<PersonalFinanceAccountsPage/>}/>
     <Route element={<AdminOnly/>}>
       <Route path="dashboard" element={<DashboardPage/>}/>
       <Route path="snack" element={<SnackOverviewPage/>}/>
