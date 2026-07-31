@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
-import { ErrorText, SuccessText } from '../components/Ui'
 import '../auth.css'
 
 const appUrl = new URL(import.meta.env.BASE_URL, window.location.origin).toString()
+const animationUrl = `${import.meta.env.BASE_URL}login-bag-animation.mp4`
 
 export function AuthPage() {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
@@ -13,7 +13,8 @@ export function AuthPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
+  const [introDone, setIntroDone] = useState(false)
+  const [replayKey, setReplayKey] = useState(0)
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
@@ -33,25 +34,21 @@ export function AuthPage() {
         })
 
     if (result.error) setError(result.error.message)
-    else if (mode === 'signup') setSuccess('Account created. Open the newest confirmation email, confirm your address, then sign in.')
+    else if (mode === 'signup') setSuccess('SUCCESS! Account created. Confirm your email, then sign in.')
     setBusy(false)
   }
 
   const resendConfirmation = async () => {
-    if (!email) {
-      setError('Enter your email address first.')
-      return
-    }
+    if (!email) return setError('Enter your email address first.')
     setBusy(true)
     setError(null)
-    setSuccess(null)
     const { error: resendError } = await supabase.auth.resend({
       type: 'signup',
       email,
       options: { emailRedirectTo: appUrl },
     })
     if (resendError) setError(resendError.message)
-    else setSuccess('A new confirmation email has been sent. Use only the newest link.')
+    else setSuccess('SUCCESS! A new confirmation email has been sent.')
     setBusy(false)
   }
 
@@ -61,96 +58,54 @@ export function AuthPage() {
     setSuccess(null)
   }
 
-  return <main className={`sf-auth ${mode} ${success ? 'completed' : ''}`}>
-    <section className="sf-auth-story" aria-label="SnackFlow secure access">
-      <div className="sf-auth-brand">
-        <span>SF</span>
-        <div><b>SnackFlow</b><small>Micro ERP</small></div>
+  const replay = () => {
+    setIntroDone(false)
+    setSuccess(null)
+    setError(null)
+    setReplayKey(value => value + 1)
+  }
+
+  return <main className={`bag-auth ${introDone ? 'bag-ready' : ''} ${success ? 'bag-successful' : ''}`}>
+    <header className="bag-auth-header">
+      <div className="bag-auth-logo"><span>SF</span><div><b>SnackFlow</b><small>Micro ERP</small></div></div>
+      <div className="bag-auth-actions">
+        <button type="button" onClick={replay}>Replay</button>
+        {!introDone && <button type="button" onClick={() => setIntroDone(true)}>Skip</button>}
       </div>
+    </header>
 
-      <div className="sf-auth-copy">
-        <span className="sf-auth-eyebrow">SMART · SECURE · SIMPLE</span>
-        <h1>Your operations,<br/>ready to move.</h1>
-        <p>Orders, advance wallets, digital bills and personal finance in one secure workspace.</p>
-      </div>
+    <section className="bag-stage">
+      <video
+        key={replayKey}
+        className="bag-character-video"
+        src={animationUrl}
+        autoPlay
+        muted
+        playsInline
+        preload="auto"
+        onEnded={() => setIntroDone(true)}
+        onError={() => setIntroDone(true)}
+      />
 
-      <div className="sf-auth-scene" aria-hidden="true">
-        <div className="sf-scene-orbit sf-orbit-one"/>
-        <div className="sf-scene-orbit sf-orbit-two"/>
-        <div className="sf-auth-person">
-          <i className="sf-person-head"/>
-          <i className="sf-person-body"/>
-          <i className="sf-person-arm left"/>
-          <i className="sf-person-arm right"/>
-          <i className="sf-person-leg left"/>
-          <i className="sf-person-leg right"/>
-        </div>
-        <div className="sf-auth-case">
-          <i className="sf-case-handle"/>
-          <span>SF</span>
-          <i className="sf-case-light"/>
-        </div>
-        <div className="sf-scene-line"/>
-      </div>
-
-      <div className="sf-auth-trust">
-        <span><b>01</b> Role-based access</span>
-        <span><b>02</b> Private finance data</span>
-        <span><b>03</b> Auditable records</span>
-      </div>
-    </section>
-
-    <section className="sf-auth-panel">
-      <form className="sf-auth-card" onSubmit={submit}>
-        <div className="sf-case-top" aria-hidden="true"><span/><i/><span/></div>
-        <div className="sf-auth-mobile-brand">
-          <span>SF</span><div><b>SnackFlow</b><small>Micro ERP</small></div>
-        </div>
-
-        <div className="sf-auth-heading">
-          <span className="sf-status-dot"/>
-          <small>{mode === 'signin' ? 'SECURE SIGN IN' : 'ACCOUNT REGISTRATION'}</small>
-          <h2>{mode === 'signin' ? 'Welcome back' : 'Create your account'}</h2>
-          <p>{mode === 'signin'
-            ? 'Enter your credentials to open your workspace.'
-            : 'The first account becomes Admin. Later accounts require Admin approval.'}</p>
-        </div>
-
-        <ErrorText error={error}/>
-        <SuccessText text={success}/>
-
-        {mode === 'signup' && <label className="sf-field">
-          <span>Full name</span>
-          <input value={name} onChange={event => setName(event.target.value)} autoComplete="name" placeholder="Mohammad Shahazan" required />
-        </label>}
-
-        <label className="sf-field">
-          <span>Email address</span>
-          <input type="email" value={email} onChange={event => setEmail(event.target.value)} autoComplete="email" placeholder="name@company.com" required />
-        </label>
-
-        <label className="sf-field">
-          <span>Password</span>
-          <div className="sf-password-field">
-            <input type={showPassword ? 'text' : 'password'} minLength={6} value={password} onChange={event => setPassword(event.target.value)} autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} placeholder="Minimum 6 characters" required />
-            <button type="button" className="sf-password-toggle" onClick={() => setShowPassword(value => !value)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? 'Hide' : 'Show'}</button>
-          </div>
-        </label>
-
-        <button className="sf-auth-submit" disabled={busy}>
-          <span>{busy ? 'Please wait…' : mode === 'signin' ? 'Open workspace' : 'Create account'}</span>
-          <b aria-hidden="true">→</b>
-        </button>
-
-        {mode === 'signup' && <button type="button" className="sf-auth-text-button" disabled={busy} onClick={resendConfirmation}>Resend confirmation email</button>}
-
-        <div className="sf-auth-switch">
-          <span>{mode === 'signin' ? 'New to SnackFlow?' : 'Already registered?'}</span>
-          <button type="button" onClick={switchMode}>{mode === 'signin' ? 'Create account' : 'Sign in'}</button>
-        </div>
-
-        <div className="sf-auth-security"><i/> Protected by Supabase authentication and database-level permissions.</div>
+      <form className="bag-login-form" onSubmit={submit}>
+        <h1>{mode === 'signin' ? 'LOGIN NOW' : 'REGISTRATION NOW'}</h1>
+        {mode === 'signup' && <input value={name} onChange={event => setName(event.target.value)} placeholder="Full name" autoComplete="name" required />}
+        <input type="email" value={email} onChange={event => setEmail(event.target.value)} placeholder="Email address" autoComplete="email" required />
+        <input type="password" minLength={6} value={password} onChange={event => setPassword(event.target.value)} placeholder="Password" autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} required />
+        <label className="bag-remember"><input type="checkbox" defaultChecked/><span>Remember me</span></label>
+        {error && <div className="bag-form-message error">{error}</div>}
+        <button className="bag-submit" disabled={busy}>{busy ? 'PLEASE WAIT…' : mode === 'signin' ? 'LOGIN' : 'SIGN UP'}</button>
+        {mode === 'signup' && <button type="button" className="bag-form-link" onClick={resendConfirmation} disabled={busy}>Resend confirmation email</button>}
+        <button type="button" className="bag-form-link" onClick={switchMode}>{mode === 'signin' ? 'Create account' : 'Already have an account?'}</button>
       </form>
+
+      <div className="bag-success-card" role="status">
+        <strong>SUCCESS!</strong>
+        <span>{success || 'Your request has been completed.'}</span>
+        <button type="button" onClick={() => { setSuccess(null); setMode('signin') }}>BACK TO LOGIN</button>
+      </div>
     </section>
+
+    <p className="bag-auth-caption">Secure access to SnackFlow orders, wallets, reports and personal finance.</p>
   </main>
 }
